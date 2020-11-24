@@ -109,8 +109,11 @@ emu : device/mem_bandwidth_ddr.cl
 run_emu : emu
 	bin/mem_bandwidth 1024 emu
 
+report_hw:
+	aoc -rtl -board-package=$(AOCL_BOARD_PACKAGE_ROOT) -board=pac_s10_usm -o bin/mem_bandwidth_s10_svmddr_report.out device/mem_bandwidth_ddr.cl
+
 build_hw:
-	aoc -board-package=/opt/intel/oneapi/intelfpgadpcpp/2021.1-beta10/board/intel_s10sx_pac -board=pac_s10_usm -o bin/mem_bandwidth_s10_svmddr.aocx device/mem_bandwidth_ddr.aocx
+	aoc -board-package=$(AOCL_BOARD_PACKAGE_ROOT) -board=pac_s10_usm -o bin/mem_bandwidth_s10_svmddr.aocx device/mem_bandwidth_ddr.cl
 
 run_hw :
 	bin/mem_bandwidth 1024000
