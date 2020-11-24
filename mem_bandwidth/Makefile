@@ -106,6 +106,11 @@ $(TARGET_DIR)/$(TARGET) : Makefile $(SRCS) $(INC_FILES)
 emu : device/mem_bandwidth_ddr.cl
 	aoc -march=emulator -board=pac_s10_usm -o bin/mem_bandwidth_s10_svmddr_emu.aocx device/mem_bandwidth_ddr.cl
 
+run_emu : emu
+	bin/mem_bandwidth 1024 emu
+
+run_hw :
+	bin/mem_bandwidth 1024000
 
 # Standard make targets
 clean :

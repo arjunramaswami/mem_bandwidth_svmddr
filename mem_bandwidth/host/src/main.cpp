@@ -6,7 +6,7 @@
 // whom the Software is furnished to do so, subject to the following conditions:
 // The above copyright notice and this permission notice shall be included in all copies or
 // substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 // EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 // OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -15,7 +15,7 @@
 // WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
-// 
+//
 // This agreement shall be governed in all respects by the laws of the State of California and
 // by the laws of the United States of America.
 
@@ -74,14 +74,14 @@ void acl_aligned_free (void *ptr) {
 static bool device_has_svm(cl_device_id device) {
    cl_device_svm_capabilities a;
    clGetDeviceInfo(device, CL_DEVICE_SVM_CAPABILITIES, sizeof(cl_uint), &a, NULL);
-   
+
    if( a & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER)
    	   return true;
-   
+
    return false;
 }
 
-//hdatain = (unsigned int*)clSVMAllocIntelFPGA(context, 0, buf_size, 1024); 
+//hdatain = (unsigned int*)clSVMAllocIntelFPGA(context, 0, buf_size, 1024);
 void *alloc_fpga_host_buffer(cl_context &in_context, int some_int, int size, int some_int2);
 cl_int set_fpga_buffer_kernel_param(cl_kernel &kernel, int param, void *ptr);
 
@@ -124,22 +124,22 @@ static void dump_error(const char *str, cl_int status) {
 // free the resources allocated during initialization
 static void freeResources() {
 
-  if(kernel) 
-    clReleaseKernel(kernel);  
-  if(kernel_read) 
-    clReleaseKernel(kernel_read);  
-  if(kernel_write) 
-    clReleaseKernel(kernel_write);      
-  if(program) 
+  if(kernel)
+    clReleaseKernel(kernel);
+  if(kernel_read)
+    clReleaseKernel(kernel_read);
+  if(kernel_write)
+    clReleaseKernel(kernel_write);
+  if(program)
     clReleaseProgram(program);
-  if(queue) 
+  if(queue)
     clReleaseCommandQueue(queue);
-  if(hdatain) 
+  if(hdatain)
    remove_fpga_buffer(context,hdatain);
-  if(hdataout) 
-   remove_fpga_buffer(context,hdataout);     
+  if(hdataout)
+   remove_fpga_buffer(context,hdataout);
   free( hdatatemp);
-  if(context) 
+  if(context)
     clReleaseContext(context);
 
 }
@@ -223,8 +223,22 @@ int main(int argc, char *argv[]) {
   {
       vectorSize = atoi(argv[1])*V;
       lines = atoi(argv[1]);
-  }    
-    
+  }
+
+  std::string platform_search_string, aocx_name_string;
+  if ( argc >= 3 ) // add emu option
+  {
+    platform_search_string = "Emulation";
+    aocx_name_string = "bin/mem_bandwidth_s10_svmddr_emu.aocx";
+    printf("3 Arguments given, assuming emulation mode.\n");
+  } else {
+    platform_search_string = "SDK";
+    aocx_name_string = "bin/mem_bandwidth_s10_svmddr.aocx";
+    printf("<3 Arguments given, assuming hardware execution mode.\n");
+  }
+  printf("Using %s as search string for platform.\n", platform_search_string.c_str());
+  printf("Using %s as aocx name.\n", aocx_name_string.c_str());
+
   if(lines == 0 || lines > 8000000) {
     printf("Invalid Number of cachelines.\n");
     return 1;
@@ -239,16 +253,16 @@ int main(int argc, char *argv[]) {
   }
   if(num_platforms != 1) {
     printf("Found %d platforms!\n", num_platforms);
-    printf("Trying to select SDK...\n");
-    platform = findPlatform("SDK");
+    printf("Trying to select platform %s...\n", platform_search_string.c_str());
+    platform = findPlatform(platform_search_string.c_str());
     if(!platform){
       freeResources();
       return 1;
     }
   }
-  
+
   //platform = findPlatform("SDK");
-      
+
   // get the device ID
   status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, &device, &num_devices);
   if(status != CL_SUCCESS) {
@@ -269,8 +283,8 @@ int main(int argc, char *argv[]) {
     freeResources();
     return 1;
   }
-  
- 
+
+
   if (!device_has_svm(device)) {
     printf("Platform does not use SVM!\n");
     return 0;
@@ -280,45 +294,45 @@ int main(int argc, char *argv[]) {
 
   printf("Creating SVM buffers.\n");
   unsigned int buf_size =  vectorSize <= 0 ? 64 : vectorSize*4;
- 
+
   // allocate and initialize the input vectors
-  hdatain = (unsigned int*)alloc_fpga_host_buffer(context, 0, buf_size, 1024); 
+  hdatain = (unsigned int*)alloc_fpga_host_buffer(context, 0, buf_size, 1024);
   if(hdatain == NULL) {
     dump_error("Failed alloc_fpga_host_buffer.", status);
     freeResources();
     return 1;
-  }        
+  }
   hdataout = (unsigned int*)alloc_fpga_host_buffer(context, 0, buf_size, 1024);
   if(hdataout == NULL) {
     dump_error("Failed alloc_fpga_host_buffer.", status);
     freeResources();
     return 1;
-  }      
-  printf("Creating DDR buffers.\n");  
+  }
+  printf("Creating DDR buffers.\n");
   hdata_ddr1 = clCreateBuffer(context, CL_MEM_READ_WRITE, buf_size, NULL, &status);
   if(status != CL_SUCCESS) {
     dump_error("Failed clCreateBuffer.", status);
     freeResources();
     return 1;
-  }      
-      
+  }
+
   hdata_ddr2 = clCreateBuffer(context, CL_MEM_READ_WRITE, buf_size, NULL, &status);
   if(status != CL_SUCCESS) {
     dump_error("Failed clCreateBuffer.", status);
     freeResources();
     return 1;
-  }            
+  }
 
   hdatatemp = (unsigned int*)acl_aligned_malloc(buf_size);
   if(hdatatemp == NULL){
     dump_error("Failed acl_aligned_malloc.", status);
     freeResources();
-    return 1;  
+    return 1;
   }
-  
-  printf("Initializing data.\n");    
+
+  printf("Initializing data.\n");
   initializeVector_seq(hdatain, vectorSize);
-  initializeVector(hdataout, vectorSize);  	
+  initializeVector(hdataout, vectorSize);
 
   // create a command queue
   queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
@@ -327,14 +341,15 @@ int main(int argc, char *argv[]) {
     freeResources();
     return 1;
   }
-  
+
   // create the program
 
   cl_int kernel_status;
-  
+
   size_t binsize = 0;
-  unsigned char * binary_file = loadBinaryFile("bin/mem_bandwidth_s10_svmddr.aocx", &binsize);
-  
+  printf("Trying to load aocx: %s\n", aocx_name_string.c_str());
+  unsigned char * binary_file = loadBinaryFile(aocx_name_string.c_str(), &binsize);
+
   if(!binary_file) {
     dump_error("Failed loadBinaryFile.", status);
     freeResources();
@@ -354,7 +369,7 @@ int main(int argc, char *argv[]) {
     freeResources();
     return 1;
   }
-  
+
 
 
   printf("Creating nop kernel\n");
@@ -366,7 +381,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Launching the kernel...\n");
-	
+
     status = clEnqueueTask(queue, kernel, 0, NULL, NULL);
     if (status != CL_SUCCESS) {
       dump_error("Failed to launch kernel.", status);
@@ -375,7 +390,7 @@ int main(int argc, char *argv[]) {
     }
     printf("after kernel nop launch\n");
     clFinish(queue);
- 
+
 
     printf("Starting memcopy kernel\n");
 // Done kernel launch test
@@ -416,21 +431,21 @@ int main(int argc, char *argv[]) {
       return 1;
     }
     printf("Launching the kernel...\n");
-    status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 
-       (void *)hdatain,buf_size, 0, NULL, NULL); 
+    status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
+       (void *)hdatain,buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE, 
-       (void *)hdataout, buf_size, 0, NULL, NULL); 
+    status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE,
+       (void *)hdataout, buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
-    }	
-	
+    }
+
 
     const double start_time = getCurrentTimestamp();
     status = clEnqueueTask(queue, kernel, 0, NULL, NULL);
@@ -442,20 +457,20 @@ int main(int argc, char *argv[]) {
     clFinish(queue);
     const double end_time = getCurrentTimestamp();
 
-	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL); 
+	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = unenqueue_fpga_buffer(queue, (void *)hdataout, 0, NULL, NULL); 
+    status = unenqueue_fpga_buffer(queue, (void *)hdataout, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
-    }	
+    }
     clFinish(queue);
-		
+
 
     // Wall-clock time taken.
     float time = (end_time - start_time);
@@ -473,20 +488,20 @@ int main(int argc, char *argv[]) {
       }else{
         successes++;
       }
-    }  	  
+    }
   }
-  
+
   if (runkernel == 5 || runkernel == 5){
 
     printf("Copying to DDR\n");
     status = clEnqueueWriteBuffer(queue, hdata_ddr1, CL_TRUE,
 			0, buf_size, hdatain, 0, NULL, NULL);
-      
+
     printf("Creating memcopy_ddr kernel (DDR->DDR)\n");
-    
+
     // create the kernel
     kernel = clCreateKernel(program, "memcopy_ddr", &status);
-    
+
     if(status != CL_SUCCESS) {
       dump_error("Failed clCreateKernel.", status);
       freeResources();
@@ -516,24 +531,24 @@ int main(int argc, char *argv[]) {
 
     printf("Launching the kernel...\n");
 
-   // status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 
-    //   (void *)hdatain,buf_size, 0, NULL, NULL); 
+   // status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
+    //   (void *)hdatain,buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-   // status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE, 
-   //    (void *)hdataout, buf_size, 0, NULL, NULL); 
+   // status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE,
+   //    (void *)hdataout, buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
-    }	
-	
+    }
+
     printf("after buffer enqueue\n");
-	
-	
+
+
     const double start_time = getCurrentTimestamp();
     status = clEnqueueTask(queue, kernel, 0, NULL, NULL);
     if (status != CL_SUCCESS) {
@@ -544,22 +559,22 @@ int main(int argc, char *argv[]) {
     printf("after kernel launch\n");
     clFinish(queue);
     const double end_time = getCurrentTimestamp();
-	
-    status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL); 
+
+    status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = unenqueue_fpga_buffer(queue, (void *)hdataout, 0, NULL, NULL); 
+    status = unenqueue_fpga_buffer(queue, (void *)hdataout, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
-    }	
-	
+    }
+
 	 clFinish(queue);
-	
+
     // Wall-clock time taken.
     float time = (end_time - start_time);
 
@@ -567,18 +582,18 @@ int main(int argc, char *argv[]) {
     printf("Processed %d unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
     printf("Read/Write Bandwidth = %.0f MB/s\n", bw);
     printf("Kernel execution is complete.\n");
-    
-    
+
+
     printf("Copying from DDR\n");
     status = clEnqueueReadBuffer(queue, hdata_ddr2, CL_TRUE,
 			0, buf_size, hdatatemp, 0, NULL, NULL);
-			
-      
+
+
     if(status != CL_SUCCESS) {
       dump_error("Failed clEnqueueReadBuffer", status);
       freeResources();
       return 1;
-    }      
+    }
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain[i] != hdatatemp[i]) {
@@ -587,8 +602,8 @@ int main(int argc, char *argv[]) {
       }else{
         successes++;
       }
-    }   	
-	  
+    }
+
   }
   if (runkernel == 0 || runkernel == 2){
    printf("Creating memcopy_to_ddr and memcopy_from_ddr kernel (Host->DDR->Host)\n");
@@ -640,21 +655,21 @@ int main(int argc, char *argv[]) {
       return 1;
     }
     printf("Launching the kernel...\n");
-    status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 
-       (void *)hdatain,buf_size, 0, NULL, NULL); 
+    status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
+       (void *)hdatain,buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE, 
-       (void *)hdataout, buf_size, 0, NULL, NULL); 
+    status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE,
+       (void *)hdataout, buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
-    }	
-	
+    }
+
 
     const double start_time = getCurrentTimestamp();
     status = clEnqueueTask(queue, kernel, 0, NULL, NULL);
@@ -672,20 +687,20 @@ int main(int argc, char *argv[]) {
     clFinish(queue);
     const double end_time = getCurrentTimestamp();
 
-	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL); 
+	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = unenqueue_fpga_buffer(queue, (void *)hdataout, 0, NULL, NULL); 
+    status = unenqueue_fpga_buffer(queue, (void *)hdataout, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
-    }	
+    }
     clFinish(queue);
-		
+
 
     // Wall-clock time taken.
     float time = (end_time - start_time);
@@ -703,17 +718,17 @@ int main(int argc, char *argv[]) {
       }else{
         successes++;
       }
-    } 
+    }
     printf("Read from DDR.\n");
     status = clEnqueueReadBuffer(queue, hdata_ddr1, CL_TRUE,
 			0, buf_size, hdatatemp, 0, NULL, NULL);
-			
-      
+
+
     if(status != CL_SUCCESS) {
       dump_error("Failed clEnqueueReadBuffer", status);
       freeResources();
       return 1;
-    }      
+    }
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain[i] != hdatatemp[i]) {
@@ -722,10 +737,10 @@ int main(int argc, char *argv[]) {
       }else{
         successes++;
       }
-    }   	  
+    }
   }
-  
-  
+
+
   if (runkernel == 0 || runkernel == 3){
    printf("Creating memread kernel\n");
     kernel_read = clCreateKernel(program, "memread", &status);
@@ -756,21 +771,21 @@ int main(int argc, char *argv[]) {
       return 1;
     }
     printf("Launching the kernel...\n");
-    status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 
-       (void *)hdatain,buf_size, 0, NULL, NULL); 
+    status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
+       (void *)hdatain,buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE, 
-       (void *)hdataout, buf_size, 0, NULL, NULL); 
+    status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE,
+       (void *)hdataout, buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
-    }	
-	
+    }
+
     // launch kernel
     const double start_time = getCurrentTimestamp();
     status = clEnqueueTask(queue, kernel_read, 0, NULL, NULL);
@@ -783,19 +798,19 @@ int main(int argc, char *argv[]) {
     clFinish(queue);
     const double end_time = getCurrentTimestamp();
 
-	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL); 
+	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = unenqueue_fpga_buffer(queue, (void *)hdataout, 0, NULL, NULL); 
+    status = unenqueue_fpga_buffer(queue, (void *)hdataout, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
-    }	
-	
+    }
+
     clFinish(queue);
 
     // Wall-clock time taken.
@@ -805,13 +820,13 @@ int main(int argc, char *argv[]) {
     printf("Processed %d unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
     printf("Read Bandwidth = %.0f MB/s\n", bw);
     printf("Kernel execution is complete.\n");
-  
+
   }
 
   if (runkernel == 0 || runkernel == 4){
    printf("Creating memwrite kernel\n");
     kernel_write = clCreateKernel(program, "memwrite", &status);
-  
+
     if(status != CL_SUCCESS) {
       dump_error("Failed clCreateKernel.", status);
       freeResources();
@@ -838,25 +853,25 @@ int main(int argc, char *argv[]) {
       freeResources();
       return 1;
     }
-    status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE, 
-       (void *)hdatain,buf_size, 0, NULL, NULL); 
+    status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
+       (void *)hdatain,buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE, 
-       (void *)hdataout, buf_size, 0, NULL, NULL); 
+    status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE,
+       (void *)hdataout, buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
-    }	
-	
-	
-	
+    }
+
+
+
 	printf("Launching the kernel...\n");
-    
+
     const double start_time = getCurrentTimestamp();
     status = clEnqueueTask(queue, kernel_write, 0, NULL, NULL);
     if (status != CL_SUCCESS) {
@@ -876,13 +891,13 @@ int main(int argc, char *argv[]) {
     printf("Kernel execution is complete.\n");
 
   }
-  
+
   if(failures == 0) {
     printf("Verification finished.\n");
   } else {
     printf("FAILURES %d - successes - %d\n", failures, successes);
   }
-  
+
   freeResources();
 
   return 0;
