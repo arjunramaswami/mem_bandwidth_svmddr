@@ -1,0 +1,74 @@
+<3 Arguments given, assuming hardware execution mode.
+Using SDK as search string for platform.
+Using bin/mem_bandwidth_s10_svmddr_batch.aocx as aocx name.
+Found 2 platforms!
+Trying to select platform SDK...
+SVM enabled!
+Creating SVM buffers.
+Info: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGACreating DDR buffers.
+Initializing data.
+Trying to load aocx: bin/mem_bandwidth_s10_svmddr_batch.aocx
+Creating nop kernel
+Launching the kernel...
+after kernel nop launch
+Starting memcopy kernel
+Creating memcopy kernel (Host->Host)
+Launching the kernel...
+Processed 16777216 unsigned ints in 5793.5059 us
+Read/Write Bandwidth = 23167 MB/s
+Kernel execution is complete.
+Copying to DDR
+Creating memcopy_ddr kernel (DDR->DDR)
+Launching the kernel...
+after buffer enqueue
+after kernel launch
+Processed 16777216 unsigned ints in 4163.5166 us
+Read/Write Bandwidth = 16118 MB/s
+Kernel execution is complete.
+Copying from DDR
+Creating memcopy_to_ddr and memcopy_from_ddr kernel (Host->DDR->Host)
+Launching the kernel...
+
+Batch 1: Write Kernel Start  3191834283410131.000000
+Batch 1: Write Kernel End    3191834288706531.000000
+Batch 1: Read Kernel Start   3191834288722420.000000
+Batch 1: Read Kernel End     3191834294037408.000000
+Batch 2: Write Kernel Start  3191834288706930.000000
+Batch 2: Write Kernel End    3191834299222301.000000
+Batch 2: Read Kernel Start   3191834299234828.000000
+Batch 2: Read Kernel End     3191834304498898.000000
+
+Batch 1: Write Kernel Exec Time 5296400.000000
+Batch 1: Read Kernel Exec Time  5314988.000000
+Batch 2: Write Kernel Exec Time 10515371.000000
+Batch 2: Read Kernel Exec Time  5264070.000000
+
+Processed 67108864 unsigned ints in 21122.2871 us
+Read/Write Bandwidth = 12709 MB/s
+Kernel execution is complete.
+Read from DDR.
+
+Creating batched memcopy (Host->DDR->Host)
+Launching the kernel...
+
+Batch 1: Write Kernel Start  3191834446552488.000000
+Batch 1: Write Kernel End    3191834470465314.000000
+
+Batch 1: Write Kernel Exec Time 23912826.000000
+
+Processed 67108864 unsigned ints in 23954.1992 us
+Read/Write Bandwidth = 11206 MB/s
+Kernel execution is complete.
+Read from DDR.
+
+Creating memread kernel
+Launching the kernel...
+Processed 16777216 unsigned ints in 5318.1602 us
+Read Bandwidth = 12619 MB/s
+Kernel execution is complete.
+Creating memwrite kernel
+Launching the kernel...
+Processed 16777216 unsigned ints in 5297.1670 us
+Write Bandwidth = 12669 MB/s
+Kernel execution is complete.
+Verification finished.
