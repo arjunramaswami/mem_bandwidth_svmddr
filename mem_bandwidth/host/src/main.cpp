@@ -35,6 +35,8 @@
 #include "AOCLUtils/aocl_utils.h"
 //#include "aocl_mmd.h"
 
+#include <time.h>
+
 using namespace aocl_utils;
 static const size_t V = 16;
 //static size_t vectorSize = 1024*1024*4*16;
@@ -42,9 +44,9 @@ static size_t vectorSize = 1024*1024*16;
 
 bool use_prealloc_svm_buffer = true;
 
-float bw;
+double bw;
 // 0 - runall, 2 memcopy , 3 read, 4 write, 5 ddr
-int runkernel = 0;
+int runkernel = 8;
 
 // ACL runtime configuration
 static cl_platform_id platform;
@@ -106,8 +108,6 @@ void remove_fpga_buffer(cl_context &context, void *ptr);
 static unsigned *hdatain, *hdataout, *hdatatemp;
 static unsigned *hdatain_2, *hdataout_2, *hdatatemp_2;
 
-cl_mem hdata_ddr1, hdata_ddr2;
-
 cl_mem hdata_ddr_b1, hdata_ddr_b2; // Non-interleaved to Banks 1, 2
 
 static void initializeVector(unsigned* vector, int size) {
@@ -132,6 +132,10 @@ static void freeResources() {
     clReleaseMemObject(hdata_ddr_b1);
   if (hdata_ddr_b2)
     clReleaseMemObject(hdata_ddr_b2);
+  if(kernel)
+    clReleaseKernel(kernel);
+  if(kernel2)
+    clReleaseKernel(kernel2);
   if(kernel_read)
     clReleaseKernel(kernel_read);
   if(kernel_write)
@@ -140,6 +144,10 @@ static void freeResources() {
     clReleaseProgram(program);
   if(queue)
     clReleaseCommandQueue(queue);
+  if(queue1)
+    clReleaseCommandQueue(queue1);
+  if(queue2)
+    clReleaseCommandQueue(queue2);
   if(hdatain)
    remove_fpga_buffer(context,hdatain);
   if(hdataout)
@@ -148,11 +156,10 @@ static void freeResources() {
    remove_fpga_buffer(context,hdatain_2);
   if(hdataout_2)
    remove_fpga_buffer(context,hdataout_2);
-  free( hdatatemp);
-  free( hdatatemp_2);
+  free(hdatatemp);
+  free(hdatatemp_2);
   if(context)
     clReleaseContext(context);
-
 }
 
 
@@ -226,6 +233,7 @@ void remove_fpga_buffer(cl_context &context, void *ptr)
 void cleanup() {
 
 }
+
 int main(int argc, char *argv[]) {
   cl_uint num_platforms;
   cl_uint num_devices;
@@ -330,22 +338,6 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   printf("Creating DDR buffers.\n");
-  /*
-  hdata_ddr1 = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_CHANNEL_2_INTELFPGA, buf_size, NULL, &status);
-  if(status != CL_SUCCESS) {
-    dump_error("Failed clCreateBuffer.", status);
-    freeResources();
-    return 1;
-  }
-
-  hdata_ddr2 = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_CHANNEL_4_INTELFPGA, buf_size, NULL, &status);
-  if(status != CL_SUCCESS) {
-    dump_error("Failed clCreateBuffer.", status);
-    freeResources();
-    return 1;
-  }
-  */
-
   hdatatemp = (unsigned int*)acl_aligned_malloc(buf_size);
   if(hdatatemp == NULL){
     dump_error("Failed acl_aligned_malloc.", status);
@@ -428,7 +420,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  printf("Creating nop kernel\n");
+  printf("0 - Creating nop kernel\n");
   kernel = clCreateKernel(program, "nop", &status);
     if(status != CL_SUCCESS) {
       dump_error("Failed clCreateKernel for nop", status);
@@ -448,7 +440,6 @@ int main(int argc, char *argv[]) {
     clFinish(queue);
 
 
-  printf("Starting memcopy kernel\n");
 // Done kernel launch test
   initializeVector_seq(hdatain, vectorSize);
   initializeVector(hdataout, vectorSize);
@@ -456,7 +447,7 @@ int main(int argc, char *argv[]) {
   int successes = 0;
   fflush(stdout);
   if (runkernel == 0 || runkernel == 2){
-   printf("Creating memcopy kernel (Host->Host)\n");
+    printf("\n1 - Creating memcopy kernel (Host->Host)\n");
     // create the kernel
     kernel = clCreateKernel(program, "memcopy", &status);
     if(status != CL_SUCCESS) {
@@ -529,17 +520,17 @@ int main(int argc, char *argv[]) {
 
 
     // Wall-clock time taken.
-    float time = (end_time - start_time);
+    double time = (end_time - start_time);
 
     bw = vectorSize / (time * 1000000.0f) * sizeof(unsigned int) * 2;
-    printf("Processed %d unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
+    printf("Processed %ld unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
     printf("Read/Write Bandwidth = %.0f MB/s\n", bw);
     printf("Kernel execution is complete.\n");
 
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain[i] != hdataout[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
+        if (failures < 32) printf("Verification_failure %ld: %d != %d, diff %d, line %ld\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
         failures++;
       }else{
         successes++;
@@ -549,15 +540,14 @@ int main(int argc, char *argv[]) {
 
   if (runkernel == 0 || runkernel == 5){
 
+    printf("\n5 - Creating memcopy_ddr kernel (DDR->DDR)\n");
+
     printf("Copying to DDR\n");
     status = clEnqueueWriteBuffer(queue, hdata_ddr_b1, CL_TRUE,
 			0, buf_size, hdatain, 0, NULL, NULL);
 
-    printf("Creating memcopy_ddr kernel (DDR->DDR)\n");
-
     // create the kernel
     kernel = clCreateKernel(program, "memcopy_ddr", &status);
-
     if(status != CL_SUCCESS) {
       dump_error("Failed clCreateKernel.", status);
       freeResources();
@@ -587,24 +577,6 @@ int main(int argc, char *argv[]) {
 
     printf("Launching the kernel...\n");
 
-   // status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
-    //   (void *)hdatain,buf_size, 0, NULL, NULL);
-    if(status != CL_SUCCESS) {
-      dump_error("Failed enqueue_fpga_buffer", status);
-      freeResources();
-      return 1;
-    }
-   // status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE,
-   //    (void *)hdataout, buf_size, 0, NULL, NULL);
-    if(status != CL_SUCCESS) {
-      dump_error("Failed enqueue_fpga_buffer", status);
-      freeResources();
-      return 1;
-    }
-
-    printf("after buffer enqueue\n");
-
-
     const double start_time = getCurrentTimestamp();
     status = clEnqueueTask(queue, kernel, 0, NULL, NULL);
     if (status != CL_SUCCESS) {
@@ -632,17 +604,16 @@ int main(int argc, char *argv[]) {
 	 clFinish(queue);
 
     // Wall-clock time taken.
-    float time = (end_time - start_time);
+    double time = (end_time - start_time);
 
     bw = vectorSize / (time * 1000000.0f) * sizeof(unsigned int);
-    printf("Processed %d unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
+    printf("Processed %ld unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
     printf("Read/Write Bandwidth = %.0f MB/s\n", bw);
     printf("Kernel execution is complete.\n");
 
     printf("Copying from DDR\n");
     status = clEnqueueReadBuffer(queue, hdata_ddr_b2, CL_TRUE,
 			0, buf_size, hdatatemp, 0, NULL, NULL);
-
 
     if(status != CL_SUCCESS) {
       dump_error("Failed clEnqueueReadBuffer", status);
@@ -652,16 +623,17 @@ int main(int argc, char *argv[]) {
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain[i] != hdatatemp[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
+        if (failures < 32) printf("Verification_failure %ld: %d != %d, diff %d, line %ld\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
         failures++;
       }else{
         successes++;
       }
     }
-
   }
-  if (runkernel == 0 || runkernel == 2){
-    printf("Creating memcopy_to_ddr and memcopy_from_ddr kernel (Host->DDR->Host)\n");
+
+  if (runkernel == 0 || runkernel == 9){
+    printf("\n9 - Creating batched memcopy_to_ddr and memcopy_from_ddr kernel (Host->DDR->Host)\n");
+
     // create the kernel
     kernel = clCreateKernel(program, "memcopy_to_ddr", &status);
     kernel2 = clCreateKernel(program, "memcopy_from_ddr", &status);
@@ -683,7 +655,16 @@ int main(int argc, char *argv[]) {
       freeResources();
       return 1;
     }
-    status = clSetKernelArg(kernel2, 0, sizeof(cl_mem), &hdata_ddr_b1);
+
+    cl_int arg_3 = lines;
+    status = clSetKernelArg(kernel, 2, sizeof(cl_int), &(arg_3));
+    if(status != CL_SUCCESS) {
+      dump_error("Failed Set arg 2.", status);
+      freeResources();
+      return 1;
+    }
+
+    status = clSetKernelArg(kernel2, 0, sizeof(cl_mem), &hdata_ddr_b2);
     if(status != CL_SUCCESS) {
       dump_error("Failed set memcopy_from_ddr arg 0.", status);
       return 1;
@@ -694,13 +675,6 @@ int main(int argc, char *argv[]) {
       freeResources();
       return 1;
     }
-    cl_int arg_3 = lines;
-    status = clSetKernelArg(kernel, 2, sizeof(cl_int), &(arg_3));
-    if(status != CL_SUCCESS) {
-      dump_error("Failed Set arg 2.", status);
-      freeResources();
-      return 1;
-    }
     arg_3 = lines;
     status = clSetKernelArg(kernel2, 2, sizeof(cl_int), &(arg_3));
     if(status != CL_SUCCESS) {
@@ -708,7 +682,12 @@ int main(int argc, char *argv[]) {
       freeResources();
       return 1;
     }
-    printf("Launching the kernel...\n");
+    printf("Writing to device\n");
+    status = clEnqueueWriteBuffer(queue1, hdata_ddr_b2, CL_TRUE,
+			0, buf_size, hdatain_2, 0, NULL, NULL);
+
+    clFinish(queue1);
+
     status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
        (void *)hdatain, buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
@@ -716,94 +695,40 @@ int main(int argc, char *argv[]) {
       freeResources();
       return 1;
     }
-    status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE,
+
+    status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
        (void *)hdataout, buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
-       (void *)hdatain_2, buf_size, 0, NULL, NULL);
-    if(status != CL_SUCCESS) {
-      dump_error("Failed enqueue_fpga_buffer", status);
-      freeResources();
-      return 1;
-    }
-    status = enqueue_fpga_buffer(queue, CL_TRUE,  CL_MAP_READ | CL_MAP_WRITE,
-       (void *)hdataout_2, buf_size, 0, NULL, NULL);
-    if(status != CL_SUCCESS) {
-      dump_error("Failed enqueue_fpga_buffer", status);
-      freeResources();
-      return 1;
-    }
+
+    printf("Launching the kernel...\n");
 
     cl_event start_first_batch, end_first_batch, start_second_batch, end_second_batch;
     const double start_time = getCurrentTimestamp();
-    // printf("Batch1: Write Kernel Start\n");
-    status = clEnqueueTask(queue1, kernel, 0, NULL, &start_first_batch);
-    if (status != CL_SUCCESS) {
-      dump_error("Failed to launch kernel.", status);
-      freeResources();
-      return 1;
-    }
-    clFinish(queue1);
 
-    // printf("Batch1: Read Kernel Start\n");
-    
-    status = clEnqueueTask(queue1, kernel2, 0, NULL, &end_first_batch);
+    // Kernel2: DDR->Host, Kernel: Host->DDR
+    status = clEnqueueTask(queue1, kernel, 0, NULL, &start_second_batch);
     if (status != CL_SUCCESS) {
       dump_error("Failed to launch kernel.", status);
       freeResources();
       return 1;
     }
 
-    status = set_fpga_buffer_kernel_param(kernel, 0, (void*)hdatain_2);
-    if(status != CL_SUCCESS) {
-      dump_error("Failed set memcopy_to_ddr  arg 0.", status);
-      return 1;
-    }
-    status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &hdata_ddr_b2);
-    if(status != CL_SUCCESS) {
-      dump_error("Failed Set memcopy_to_ddr arg 1.", status);
-      freeResources();
-      return 1;
-    }
-
-    sleep(1); // 5ms
-    // printf("Batch2: Write Kernel Start\n");
-    status = clEnqueueTask(queue2, kernel, 0, NULL, &start_second_batch);
+    //usleep(7000);
+    status = clEnqueueTask(queue2, kernel2, 0, NULL, &end_first_batch);
     if (status != CL_SUCCESS) {
       dump_error("Failed to launch kernel.", status);
       freeResources();
       return 1;
     }
+
 
     clFinish(queue1);
     clFinish(queue2);
-    // set the arguments
-    status = clSetKernelArg(kernel2, 0, sizeof(cl_mem), &hdata_ddr_b2);
-    if(status != CL_SUCCESS) {
-      dump_error("Failed set memcopy_from_ddr arg 0.", status);
-      return 1;
-    }
-    status = set_fpga_buffer_kernel_param(kernel2, 1, (void*)hdataout_2);
-    if(status != CL_SUCCESS) {
-      dump_error("Failed Set memcopy_from_ddr arg 1.", status);
-      freeResources();
-      return 1;
-    }
 
-    // printf("Batch2: Read Kernel Start\n");
-    status = clEnqueueTask(queue2, kernel2, 0, NULL, &end_second_batch);
-    if (status != CL_SUCCESS) {
-      dump_error("Failed to launch kernel.", status);
-      freeResources();
-      return 1;
-    }
-    clFinish(queue1);
-    clFinish(queue2);
-    // printf("Batch2: Read Kernel End\n");
     const double end_time = getCurrentTimestamp();
 
 	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL);
@@ -818,24 +743,21 @@ int main(int argc, char *argv[]) {
       freeResources();
       return 1;
     }
-	  status = unenqueue_fpga_buffer(queue, (void *)hdatain_2, 0, NULL, NULL);
-    if(status != CL_SUCCESS) {
-      dump_error("Failed unenqueue_fpga_buffer", status);
-      freeResources();
-      return 1;
-    }
-    status = unenqueue_fpga_buffer(queue, (void *)hdataout_2, 0, NULL, NULL);
-    if(status != CL_SUCCESS) {
-      dump_error("Failed unenqueue_fpga_buffer", status);
-      freeResources();
-      return 1;
-    }
     clFinish(queue);
 
-    cl_ulong batch1_kernel1_start = 0.0, batch1_kernel1_end = 0.0;
-    cl_ulong batch1_kernel2_start = 0.0, batch1_kernel2_end = 0.0;
-    cl_ulong batch2_kernel1_start = 0.0, batch2_kernel1_end = 0.0;
-    cl_ulong batch2_kernel2_start = 0.0, batch2_kernel2_end = 0.0;
+    status = clEnqueueReadBuffer(queue1, hdata_ddr_b1, CL_TRUE,
+			0, buf_size, hdatatemp, 0, NULL, NULL);
+    if(status != CL_SUCCESS) {
+      dump_error("Failed enqueue_fpga_buffer", status);
+      freeResources();
+      return 1;
+    }
+    clFinish(queue1);
+
+    cl_ulong batch1_kernel1_start = 0, batch1_kernel1_end = 0;
+    cl_ulong batch1_kernel2_start = 0, batch1_kernel2_end = 0;
+    cl_ulong batch2_kernel1_start = 0, batch2_kernel1_end = 0;
+    cl_ulong batch2_kernel2_start = 0, batch2_kernel2_end = 0;
 
     clGetEventProfilingInfo(start_first_batch, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &batch1_kernel1_start, NULL);
     clGetEventProfilingInfo(start_first_batch, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &batch1_kernel1_end, NULL);
@@ -846,90 +768,58 @@ int main(int argc, char *argv[]) {
     clGetEventProfilingInfo(end_second_batch, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &batch2_kernel2_start, NULL);
     clGetEventProfilingInfo(end_second_batch, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &batch2_kernel2_end, NULL);
 
+    // Time is recorded in nanoseconds
     printf("\n");
-    printf("Batch 1: Write Kernel Start  %lf\n", (double)batch1_kernel1_start);
-    printf("Batch 1: Write Kernel End    %lf\n", (double)batch1_kernel1_end);
-    printf("Batch 1: Read Kernel Start   %lf\n", (double)batch1_kernel2_start);
-    printf("Batch 1: Read Kernel End     %lf\n", (double)batch1_kernel2_end);
-    printf("Batch 2: Write Kernel Start  %lf\n", (double)batch2_kernel1_start);
-    printf("Batch 2: Write Kernel End    %lf\n", (double)batch2_kernel1_end);
-    printf("Batch 2: Read Kernel Start   %lf\n", (double)batch2_kernel2_start);
-    printf("Batch 2: Read Kernel End     %lf\n", (double)batch2_kernel2_end);
+    printf("Batch 1: Write Kernel Start  %lu\n", batch1_kernel1_start);
+    printf("Batch 1: Write Kernel End    %lu\n", batch1_kernel1_end);
+    printf("Batch 1: Read Kernel Start   %lu\n", batch1_kernel2_start);
+    printf("Batch 1: Read Kernel End     %lu\n", batch1_kernel2_end);
+    printf("Batch 2: Write Kernel Start  %lu\n", batch2_kernel1_start);
+    printf("Batch 2: Write Kernel End    %lu\n", batch2_kernel1_end);
+    printf("Batch 2: Read Kernel Start   %lu\n", batch2_kernel2_start);
+    printf("Batch 2: Read Kernel End     %lu\n", batch2_kernel2_end);
     printf("\n");
 
-    printf("Batch 1: Write Kernel Exec Time %lf\n", (double)batch1_kernel1_end - (double)batch1_kernel1_start);
-    printf("Batch 1: Read Kernel Exec Time  %lf\n", (double)batch1_kernel2_end - (double)batch1_kernel2_start);
-    printf("Batch 2: Write Kernel Exec Time %lf\n", (double)batch2_kernel1_end - (double)batch2_kernel1_start);
-    printf("Batch 2: Read Kernel Exec Time  %lf\n", (double)batch2_kernel2_end - (double)batch2_kernel2_start);
+    // ns to ms
+    double wr_batch1_exec_t = (double)(batch1_kernel1_end - batch1_kernel1_start) * 1e-6;
+    double rd_batch1_exec_t = (double)(batch1_kernel2_end - batch1_kernel2_start) * 1e-6;
+    double wr_batch2_exec_t = (double)(batch2_kernel1_end - batch2_kernel1_start) * 1e-6;
+    double rd_batch2_exec_t = (double)(batch2_kernel2_end - batch2_kernel2_start) * 1e-6;
+    printf("Batch 1: Write Kernel Exec Time %lf ms\n", wr_batch1_exec_t);
+    printf("Batch 1: Read Kernel Exec Time  %lf ms\n", rd_batch1_exec_t);
+    printf("Batch 2: Write Kernel Exec Time %lf ms\n", wr_batch2_exec_t);
+    printf("Batch 2: Read Kernel Exec Time  %lf ms\n", rd_batch2_exec_t);
     printf("\n");
-    float time = (end_time - start_time);
+    double time = (end_time - start_time);
 
-    bw = vectorSize * sizeof(unsigned int) * 2 * 2 / (time * 1000000.0f);
-    printf("Processed %d unsigned ints in %.4f us\n", 2* 2* vectorSize, time*1000000.0f);
+    bw = vectorSize * sizeof(unsigned int) * 2 / (time * 1000000.0f);
+    printf("Processed %ld unsigned ints in %.4f us\n", 2* vectorSize, time*1000000.0f);
     printf("Read/Write Bandwidth = %.0f MB/s\n", bw);
     printf("Kernel execution is complete.\n");
 
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
-      if(hdatain[i] != hdataout[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
-        failures++;
-      }else{
-        successes++;
-      }
-    }
-    // Verify the output
-    for(size_t i = 0; i < vectorSize; i++) {
-      if(hdatain_2[i] != hdataout_2[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
-        failures++;
-      }else{
-        successes++;
-      }
-    }
-    printf("Read from DDR.\n");
-    status = clEnqueueReadBuffer(queue, hdata_ddr_b1, CL_TRUE,
-			0, buf_size, hdatatemp, 0, NULL, NULL);
-
-    if(status != CL_SUCCESS) {
-      dump_error("Failed clEnqueueReadBuffer", status);
-      freeResources();
-      return 1;
-    }
-    // Verify the output
-    for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain[i] != hdatatemp[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
+        if (failures < 32) printf("Verification_failure %ld: %d != %d, diff %d, line %ld\n",i, hdatain[i], hdatatemp[i], hdatain[i]-hdataout[i],i*4/128);
         failures++;
       }else{
         successes++;
       }
-    }
-
-    status = clEnqueueReadBuffer(queue, hdata_ddr_b2, CL_TRUE,
-			0, buf_size, hdatatemp_2, 0, NULL, NULL);
-
-    if(status != CL_SUCCESS) {
-      dump_error("Failed clEnqueueReadBuffer", status);
-      freeResources();
-      return 1;
     }
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
-      if(hdatain_2[i] != hdatatemp_2[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain_2[i], hdataout_2[i], hdatain_2[i]-hdataout_2[i],i*4/128);
+      if(hdatain_2[i] != hdataout[i]) {
+        if (failures < 32) printf("Verification_failure %ld: %d != %d, diff %d, line %ld\n",i, hdatain_2[i], hdataout[i], hdatain_2[i] - hdataout[i],i*4/128);
         failures++;
       }else{
         successes++;
       }
     }
-
   }
 
   if(runkernel == 0 || runkernel == 6){
 
-    printf("\n");
-    printf("Creating batched memcopy (Host->DDR->Host)\n");
+    printf("\n6 - Creating single kernel batched memcopy (Host->DDR->Host)\n");
     // create the kernel
     kernel = clCreateKernel(program, "memcopy_batch", &status);
     if(status != CL_SUCCESS) {
@@ -1016,7 +906,6 @@ int main(int argc, char *argv[]) {
 
     cl_event start_batch;
     const double start_time = getCurrentTimestamp();
-    // printf("Batch1: Write Kernel Start\n");
     status = clEnqueueTask(queue1, kernel, 0, NULL, &start_batch);
     if (status != CL_SUCCESS) {
       dump_error("Failed to launch kernel.", status);
@@ -1025,7 +914,6 @@ int main(int argc, char *argv[]) {
     }
 
     clFinish(queue1);
-    // printf("Batch2: Read Kernel End\n");
     const double end_time = getCurrentTimestamp();
 
 	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL);
@@ -1065,17 +953,17 @@ int main(int argc, char *argv[]) {
 
     printf("Batch 1: Write Kernel Exec Time %lf\n", (double)kernel_end - (double)kernel_start);
     printf("\n");
-    float time = (end_time - start_time);
+    double time = (end_time - start_time);
 
     bw = vectorSize * sizeof(unsigned int) * 2 * 2 / (time * 1000000.0f);
-    printf("Processed %d unsigned ints in %.4f us\n", 2* 2* vectorSize, time*1000000.0f);
+    printf("Processed %ld unsigned ints in %.4f us\n", 2* 2* vectorSize, time*1000000.0f);
     printf("Read/Write Bandwidth = %.0f MB/s\n", bw);
     printf("Kernel execution is complete.\n");
 
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain[i] != hdataout[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
+        if (failures < 32) printf("Verification_failure %ld: %d != %d, diff %d, line %ld\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
         failures++;
       }else{
         successes++;
@@ -1084,7 +972,7 @@ int main(int argc, char *argv[]) {
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain_2[i] != hdataout_2[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
+        if (failures < 32) printf("Verification_failure %ld: %d != %d, diff %d, line %ld\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
         failures++;
       }else{
         successes++;
@@ -1102,7 +990,7 @@ int main(int argc, char *argv[]) {
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain[i] != hdatatemp[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
+        if (failures < 32) printf("Verification_failure %ld: %d != %d, diff %d, line %ld\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
         failures++;
       }else{
         successes++;
@@ -1120,7 +1008,7 @@ int main(int argc, char *argv[]) {
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain_2[i] != hdatatemp_2[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain_2[i], hdataout_2[i], hdatain_2[i]-hdataout_2[i],i*4/128);
+        if (failures < 32) printf("Verification_failure %ld: %d != %d, diff %d, line %ld\n",i, hdatain_2[i], hdataout_2[i], hdatain_2[i]-hdataout_2[i],i*4/128);
         failures++;
       }else{
         successes++;
@@ -1130,7 +1018,8 @@ int main(int argc, char *argv[]) {
   }
 
   if (runkernel == 0 || runkernel == 3){
-   printf("\nCreating memread kernel\n");
+    printf("\n3 - Creating memread kernel\n");
+
     kernel_read = clCreateKernel(program, "memread", &status);
     if(status != CL_SUCCESS) {
       dump_error("Failed clCreateKernel.", status);
@@ -1202,17 +1091,17 @@ int main(int argc, char *argv[]) {
     clFinish(queue);
 
     // Wall-clock time taken.
-    float time = (end_time - start_time);
+    double time = (end_time - start_time);
 
     bw = vectorSize  / (time * 1000000.0f) * sizeof(unsigned int);
-    printf("Processed %d unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
+    printf("Processed %ld unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
     printf("Read Bandwidth = %.0f MB/s\n", bw);
     printf("Kernel execution is complete.\n");
 
   }
 
   if (runkernel == 0 || runkernel == 4){
-    printf("Creating memwrite kernel\n");
+    printf("\n4 - Creating memwrite kernel\n");
     kernel_write = clCreateKernel(program, "memwrite", &status);
 
     if(status != CL_SUCCESS) {
@@ -1256,7 +1145,6 @@ int main(int argc, char *argv[]) {
       return 1;
     }
 
-
 	  printf("Launching the kernel...\n");
 
     const double start_time = getCurrentTimestamp();
@@ -1270,22 +1158,18 @@ int main(int argc, char *argv[]) {
     const double end_time = getCurrentTimestamp();
 
     // Wall-clock time taken.
-    float time = (end_time - start_time);
+    double time = (end_time - start_time);
 
     bw = vectorSize  / (time * 1000000.0f) * sizeof(unsigned int);
-    printf("Processed %d unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
+    printf("Processed %ld unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
     printf("Write Bandwidth = %.0f MB/s\n", bw);
     printf("Kernel execution is complete.\n");
 
   }
 
   if(runkernel == 0 || runkernel == 7){
-
-    printf("memread and memwrite\n");
-    printf("Creating memread and memwrite kernel\n");
-    //kernel_write = clCreateKernel(program, "memcopy_read_write", &status);
+    printf("\n7 - Creating Single kernel with both memread and memwrite kernel\n");
     kernel_write = clCreateKernel(program, "memread_memwrite", &status);
-
     if(status != CL_SUCCESS) {
       dump_error("Failed clCreateKernel.", status);
       freeResources();
@@ -1352,26 +1236,27 @@ int main(int argc, char *argv[]) {
     clFinish(queue1);
     const double end_time = getCurrentTimestamp();
 
-	  status = unenqueue_fpga_buffer(queue1, (void *)hdatain, 0, NULL, NULL);
+	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = unenqueue_fpga_buffer(queue1, (void *)hdataout, 0, NULL, NULL);
+    status = unenqueue_fpga_buffer(queue, (void *)hdataout, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-	  status = unenqueue_fpga_buffer(queue1, (void *)hdataout_2, 0, NULL, NULL);
+	  status = unenqueue_fpga_buffer(queue, (void *)hdataout_2, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    clFinish(queue1);
+    clFinish(queue);
 
+    /*
     for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain_2[i] != 1) {
         if (failures < 32) 
@@ -1381,6 +1266,7 @@ int main(int argc, char *argv[]) {
         successes++;
       }
     }
+    */
 
     cl_ulong kernel_start = 0.0, kernel_end = 0.0;
     clGetEventProfilingInfo(start_kernel, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernel_start, NULL);
@@ -1393,20 +1279,17 @@ int main(int argc, char *argv[]) {
 
     printf("Write Kernel Exec Time %lf\n", (double)kernel_end - (double)kernel_start);
     printf("\n");
-    float time = (end_time - start_time);
+    double time = (end_time - start_time);
 
     bw = vectorSize  / (time * 1000000.0f) * sizeof(unsigned int);
-    printf("Processed %d unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
+    printf("Processed %ld unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
     printf("Write Bandwidth = %.0f MB/s\n", bw);
     printf("Kernel execution is complete.\n");
   }
 
   if(runkernel == 0 || runkernel == 8){
-
-    printf("\n");
-    printf("Memcopy Read and Write\n");
+    printf("\n8 - Overlapping Device Read and Write\n");
     kernel_write = clCreateKernel(program, "memcopy_read_write", &status);
-
     if(status != CL_SUCCESS) {
       dump_error("Failed clCreateKernel.", status);
       freeResources();
@@ -1449,9 +1332,10 @@ int main(int argc, char *argv[]) {
     printf("Copying to DDR\n");
     status = clEnqueueWriteBuffer(queue, hdata_ddr_b2, CL_TRUE,
 			0, buf_size, hdatain_2, 0, NULL, NULL);
+    clFinish(queue);
 
     status = enqueue_fpga_buffer(queue, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
-       (void *)hdatain,buf_size, 0, NULL, NULL);
+       (void *)hdatain, buf_size, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed enqueue_fpga_buffer", status);
       freeResources();
@@ -1477,13 +1361,13 @@ int main(int argc, char *argv[]) {
     clFinish(queue1);
     const double end_time = getCurrentTimestamp();
 
-	  status = unenqueue_fpga_buffer(queue1, (void *)hdatain, 0, NULL, NULL);
+	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
       return 1;
     }
-    status = unenqueue_fpga_buffer(queue1, (void *)hdataout, 0, NULL, NULL);
+    status = unenqueue_fpga_buffer(queue, (void *)hdataout, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
       dump_error("Failed unenqueue_fpga_buffer", status);
       freeResources();
@@ -1495,6 +1379,7 @@ int main(int argc, char *argv[]) {
     printf("Copying from DDR\n");
     status = clEnqueueReadBuffer(queue, hdata_ddr_b1, CL_TRUE,
 			0, buf_size, hdatatemp, 0, NULL, NULL);
+    clFinish(queue);
 
     if(status != CL_SUCCESS) {
       dump_error("Failed clEnqueueReadBuffer", status);
@@ -1504,7 +1389,16 @@ int main(int argc, char *argv[]) {
     // Verify the output
     for(size_t i = 0; i < vectorSize; i++) {
       if(hdatain[i] != hdatatemp[i]) {
-        if (failures < 32) printf("Verification_failure %d: %d != %d, diff %d, line %d\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
+        if (failures < 32) printf("Verification_failure %ld: %d != %d, diff %d, line %ld\n",i, hdatain[i], hdataout[i], hdatain[i]-hdataout[i],i*4/128);
+        failures++;
+      }else{
+        successes++;
+      }
+    }
+
+    for(size_t i = 0; i < vectorSize; i++) {
+      if(hdatain_2[i] != hdataout[i]) {
+        if (failures < 32) printf("Verification_failure %ld: %d != %d, diff %d, line %ld\n",i, hdatain_2[i], hdataout[i], hdatain_2[i]-hdataout[i],i*4/128);
         failures++;
       }else{
         successes++;
@@ -1522,11 +1416,11 @@ int main(int argc, char *argv[]) {
 
     printf("Write Kernel Exec Time %lf\n", (double)kernel_end - (double)kernel_start);
     printf("\n");
-    float time = (end_time - start_time);
+    double time = (end_time - start_time);
 
-    bw = vectorSize  / (time * 1000000.0f) * sizeof(unsigned int);
-    printf("Processed %d unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
-    printf("Write Bandwidth = %.0f MB/s\n", bw);
+    bw = vectorSize * 2 / (time * 1000000.0f) * sizeof(unsigned int);
+    printf("Processed %ld unsigned ints in %.4f us\n", vectorSize * 2, time*1000000.0f);
+    printf("Full Duplex Bandwidth = %.0f MB/s\n", bw);
     printf("Kernel execution is complete.\n");
   }
 

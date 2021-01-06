@@ -33,6 +33,38 @@ memcopy (
   }
 }
 
+__kernel void
+memcopy_read_write (
+  __global __attribute((buffer_location("host"))) ulong8 * restrict src1,
+  __global __attribute((buffer_location("host"))) ulong8 * restrict src2,
+  __global __attribute((buffer_location("device"))) ulong8 * restrict ddr1,
+  __global __attribute((buffer_location("device"))) ulong8 * restrict ddr2,
+  int lines)
+{
+
+  for(int i = 0; i < lines; i++) {
+    ddr1[i] = src1[i];
+    src2[i] = ddr2[i];
+  }
+
+}
+
+__kernel void
+__attribute__((task))
+memread_memwrite (
+  __global __attribute((buffer_location("host"))) ulong8 * restrict src,
+  __global __attribute((buffer_location("host"))) ulong8 * restrict dst1,
+  __global __attribute((buffer_location("host"))) ulong8 * restrict dst2,
+  int lines)
+{
+  ulong8 sum = (0,0,0,0,0,0,0,0);
+  for(int i = 0; i < lines; i++) {
+    sum += src[i];
+    dst2[i] = (1,1,1,1,1,1,1,1);
+  }
+  // This prevents the reads from being optimized away
+  dst1[0] = sum;
+}
 
 
 // Copies 64 byte lines from src to dst
@@ -42,28 +74,30 @@ memcopy_batch (
   __global __attribute((buffer_location("host"))) ulong8 * restrict src2,
   __global __attribute((buffer_location("device"))) ulong8 * restrict dst_ddr1,
   __global __attribute((buffer_location("device"))) ulong8 * restrict dst_ddr2,
-  __global __attribute((buffer_location("host"))) ulong8 * restrict dst_host1,
-  __global __attribute((buffer_location("host"))) ulong8 * restrict dst_host2,
+  __global __attribute((buffer_location("host"))) ulong8 * restrict dst_src1,
+  __global __attribute((buffer_location("host"))) ulong8 * restrict dst_src2,
   int lines)
 {
 
+  #pragma nofusion
   for(int i = 0; i < lines; i++) {
     dst_ddr1[i] = src1[i];
   }
 
+  #pragma nofusion
   for(int i = 0; i < lines; i++) {
+    dst_src1[i] = dst_ddr1[i];
     dst_ddr2[i] = src2[i];
-    dst_host1[i] = dst_ddr1[i];
   }
 
+  #pragma nofusion
   for(int i = 0; i < lines; i++){
-    dst_host2[i] = dst_ddr2[i];
+    dst_src2[i] = dst_ddr2[i];
   }
 }
 
 // Copies 64 byte lines from src to dst
 __kernel void
-__attribute__((task))
 memcopy_to_ddr (
   __global __attribute((buffer_location("host"))) ulong8 * restrict src,
   __global __attribute((buffer_location("device"))) ulong8 * restrict dst,
@@ -76,7 +110,6 @@ memcopy_to_ddr (
 
 // Copies 64 byte lines from src to dst
 __kernel void
-__attribute__((task))
 memcopy_from_ddr (
   __global __attribute((buffer_location("device"))) ulong8 * restrict src,
   __global __attribute((buffer_location("host"))) ulong8 * restrict dst,
@@ -89,7 +122,6 @@ memcopy_from_ddr (
 
 // Copies 64 byte lines from src to dst
 __kernel void
-__attribute__((task))
 memcopy_ddr (
   __global __attribute((buffer_location("device"))) ulong8 * restrict src,
   __global __attribute((buffer_location("device"))) ulong8 * restrict dst,
@@ -102,7 +134,6 @@ memcopy_ddr (
 
 // Reads 64 byte lines from src
 __kernel void
-__attribute__((task))
 memread (
   __global __attribute((buffer_location("host"))) ulong8 * restrict src,
   __global __attribute((buffer_location("host"))) ulong8 * restrict dst,
@@ -118,7 +149,6 @@ memread (
 
 // Writes 64 byte lines to dst
 __kernel void
-__attribute__((task))
 memwrite (
   __global __attribute((buffer_location("host"))) ulong8 * restrict src,
   __global __attribute((buffer_location("host"))) ulong8 * restrict dst,
