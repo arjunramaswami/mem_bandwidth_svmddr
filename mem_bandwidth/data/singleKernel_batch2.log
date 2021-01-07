@@ -14,61 +14,61 @@ after kernel nop launch
 Starting memcopy kernel
 Creating memcopy kernel (Host->Host)
 Launching the kernel...
-Processed 16777216 unsigned ints in 5797.2065 us
-Read/Write Bandwidth = 23152 MB/s
+Processed 16777216 unsigned ints in 5798.6787 us
+Read/Write Bandwidth = 23146 MB/s
 Kernel execution is complete.
 Copying to DDR
 Creating memcopy_ddr kernel (DDR->DDR)
 Launching the kernel...
 after buffer enqueue
 after kernel launch
-Processed 16777216 unsigned ints in 4104.6792 us
-Read/Write Bandwidth = 16349 MB/s
+Processed 16777216 unsigned ints in 4054.2964 us
+Read/Write Bandwidth = 16553 MB/s
 Kernel execution is complete.
 Copying from DDR
 Creating memcopy_to_ddr and memcopy_from_ddr kernel (Host->DDR->Host)
 Launching the kernel...
 
-Batch 1: Write Kernel Start  3191869551615129.000000
-Batch 1: Write Kernel End    3191869556911727.000000
-Batch 1: Read Kernel Start   3191869556927418.000000
-Batch 1: Read Kernel End     3191869562243083.000000
-Batch 2: Write Kernel Start  3191869556912163.000000
-Batch 2: Write Kernel End    3191869567434237.000000
-Batch 2: Read Kernel Start   3191869567446300.000000
-Batch 2: Read Kernel End     3191869572719319.000000
+Batch 1: Write Kernel Start  3216162360494155.000000
+Batch 1: Write Kernel End    3216162365786161.000000
+Batch 1: Read Kernel Start   3216162365801414.000000
+Batch 1: Read Kernel End     3216162371115716.000000
+Batch 2: Write Kernel Start  3216162365786557.000000
+Batch 2: Write Kernel End    3216162376303361.000000
+Batch 2: Read Kernel Start   3216162376315806.000000
+Batch 2: Read Kernel End     3216162381581984.000000
 
-Batch 1: Write Kernel Exec Time 5296598.000000
-Batch 1: Read Kernel Exec Time  5315665.000000
-Batch 2: Write Kernel Exec Time 10522074.000000
-Batch 2: Read Kernel Exec Time  5273019.000000
+Batch 1: Write Kernel Exec Time 5292006.000000
+Batch 1: Read Kernel Exec Time  5314302.000000
+Batch 2: Write Kernel Exec Time 10516804.000000
+Batch 2: Read Kernel Exec Time  5266178.000000
 
-Processed 67108864 unsigned ints in 21135.2598 us
-Read/Write Bandwidth = 12701 MB/s
+Processed 67108864 unsigned ints in 21121.7754 us
+Read/Write Bandwidth = 12709 MB/s
 Kernel execution is complete.
 Read from DDR.
 
 Creating batched memcopy (Host->DDR->Host)
 Launching the kernel...
 
-Batch 1: Write Kernel Start  3191869714997244.000000
-Batch 1: Write Kernel End    3191869739070952.000000
+Batch 1: Write Kernel Start  3216162523671653.000000
+Batch 1: Write Kernel End    3216162545694099.000000
 
-Batch 1: Write Kernel Exec Time 24073708.000000
+Batch 1: Write Kernel Exec Time 22022446.000000
 
-Processed 67108864 unsigned ints in 24117.6309 us
-Read/Write Bandwidth = 11130 MB/s
+Processed 67108864 unsigned ints in 22064.1172 us
+Read/Write Bandwidth = 12166 MB/s
 Kernel execution is complete.
 Read from DDR.
 
 Creating memread kernel
 Launching the kernel...
-Processed 16777216 unsigned ints in 5323.3120 us
-Read Bandwidth = 12607 MB/s
+Processed 16777216 unsigned ints in 5316.0146 us
+Read Bandwidth = 12624 MB/s
 Kernel execution is complete.
 Creating memwrite kernel
 Launching the kernel...
-Processed 16777216 unsigned ints in 5300.7749 us
-Write Bandwidth = 12660 MB/s
+Processed 16777216 unsigned ints in 5296.4658 us
+Write Bandwidth = 12670 MB/s
 Kernel execution is complete.
 Verification finished.

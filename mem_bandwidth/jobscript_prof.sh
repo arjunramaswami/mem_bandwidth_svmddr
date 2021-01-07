@@ -9,4 +9,4 @@
 module load intelFPGA_pro/20.3.0 intel_pac/19.2.0_usm devel/CMake
 module load toolchain/gompi/2020a
 
-make build_hw_no_interleaving
+make profile_hw_no_interleaving

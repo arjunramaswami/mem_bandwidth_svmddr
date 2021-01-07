@@ -1,0 +1,28 @@
+<3 Arguments given, assuming hardware execution mode.
+Using SDK as search string for platform.
+Using bin/mem_bandwidth_s10_svmddr_batch3.aocx as aocx name.
+Found 2 platforms!
+Trying to select platform SDK...
+SVM enabled!
+Creating SVM buffers.
+Info: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGACreating DDR buffers.
+Initializing data.
+Trying to load aocx: bin/mem_bandwidth_s10_svmddr_batch3.aocx
+0 - Creating nop kernel
+Launching the kernel...
+after kernel nop launch
+
+8 - Overlapping Device Read and Write
+Copying to DDR
+Launching the kernel...
+Copying from DDR
+
+Kernel Start  1295366511671958.000000
+Kernel End    1295366517453407.000000
+
+Write Kernel Exec Time 5781449.000000
+
+Processed 33554432 unsigned ints in 5819.2650 us
+Full Duplex Bandwidth = 23064 MB/s
+Kernel execution is complete.
+Verification finished.
