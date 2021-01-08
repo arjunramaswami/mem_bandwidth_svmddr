@@ -720,7 +720,9 @@ int main(int argc, char *argv[]) {
       return 1;
     }
 
-    //usleep(7000);
+    // Expm to delay writing to global memory by corresponding time of reading
+    // from global memory to show the former stalling when both are overlapped
+    // usleep(2000);
     status = clEnqueueTask(queue2, kernel2, 0, NULL, &end_first_batch);
     if (status != CL_SUCCESS) {
       dump_error("Failed to launch kernel.", status);
