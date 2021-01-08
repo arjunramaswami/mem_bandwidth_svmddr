@@ -1,0 +1,45 @@
+<3 Arguments given, assuming hardware execution mode.
+Using SDK as search string for platform.
+Using bin/mem_bandwidth_s10_svmddr.aocx as aocx name.
+Found 3 platforms!
+Trying to select platform SDK...
+SVM enabled!
+Creating SVM buffers.
+Info: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGACreating DDR buffers.
+Initializing data.
+Trying to load aocx: bin/mem_bandwidth_s10_svmddr.aocx
+Creating nop kernel
+Launching the kernel...
+after kernel nop launch
+Starting memcopy kernel
+Creating memcopy kernel (Host->Host)
+Launching the kernel...
+Processed 16777216 unsigned ints in 5795.6543 us
+Read/Write Bandwidth = 23158 MB/s
+Kernel execution is complete.
+Copying to DDR
+Creating memcopy_ddr kernel (DDR->DDR)
+Launching the kernel...
+after buffer enqueue
+after kernel launch
+Processed 16777216 unsigned ints in 8084.6938 us
+Read/Write Bandwidth = 16601 MB/s
+Kernel execution is complete.
+Copying from DDR
+Creating memcopy_to_ddr and memcopy_from_ddr kernel (Host->DDR->Host)
+Launching the kernel...
+Processed 16777216 unsigned ints in 10590.0264 us
+Read/Write Bandwidth = 12674 MB/s
+Kernel execution is complete.
+Read from DDR.
+Creating memread kernel
+Launching the kernel...
+Processed 16777216 unsigned ints in 5306.8730 us
+Read Bandwidth = 12646 MB/s
+Kernel execution is complete.
+Creating memwrite kernel
+Launching the kernel...
+Processed 16777216 unsigned ints in 5289.9849 us
+Write Bandwidth = 12686 MB/s
+Kernel execution is complete.
+Verification finished.

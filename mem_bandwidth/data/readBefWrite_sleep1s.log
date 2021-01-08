@@ -1,0 +1,102 @@
+<3 Arguments given, assuming hardware execution mode.
+Using SDK as search string for platform.
+Using bin/mem_bandwidth_s10_svmddr_batch3.aocx as aocx name.
+Found 2 platforms!
+Trying to select platform SDK...
+SVM enabled!
+Creating SVM buffers.
+Info: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGACreating DDR buffers.
+Initializing data.
+Trying to load aocx: bin/mem_bandwidth_s10_svmddr_batch3.aocx
+0 - Creating nop kernel
+Launching the kernel...
+after kernel nop launch
+
+1 - Creating memcopy kernel (Host->Host)
+Launching the kernel...
+Processed 16777216 unsigned ints in 5819.7510 us
+Read/Write Bandwidth = 23062 MB/s
+Kernel execution is complete.
+
+5 - Creating memcopy_ddr kernel (DDR->DDR)
+Copying to DDR
+Launching the kernel...
+after kernel launch
+Processed 16777216 unsigned ints in 4111.8486 us
+Read/Write Bandwidth = 16321 MB/s
+Kernel execution is complete.
+Copying from DDR
+
+9 - Creating batched memcopy_to_ddr and memcopy_from_ddr kernel (Host->DDR->Host)
+Writing to device
+Launching the kernel...
+
+Batch 1: Write Kernel Start  0.000000
+Batch 1: Write Kernel End    0.000000
+Batch 1: Read Kernel Start   1228369727942209.000000
+Batch 1: Read Kernel End     1228370729913251.000000
+Batch 2: Write Kernel Start  1228370729898012.000000
+Batch 2: Write Kernel End    1228370735210437.000000
+Batch 2: Read Kernel Start   0.000000
+Batch 2: Read Kernel End     0.000000
+
+Batch 1: Write Kernel Exec Time 0.000000
+Batch 1: Read Kernel Exec Time  1001971042.000000
+Batch 2: Write Kernel Exec Time 5312425.000000
+Batch 2: Read Kernel Exec Time  0.000000
+
+Processed 33554432 unsigned ints in 1007399.6875 us
+Read/Write Bandwidth = 133 MB/s
+Kernel execution is complete.
+
+6 - Creating single kernel batched memcopy (Host->DDR->Host)
+Launching the kernel...
+
+Batch 1: Write Kernel Start  1228370802647895.000000
+Batch 1: Write Kernel End    1228370824441671.000000
+
+Batch 1: Write Kernel Exec Time 21793776.000000
+
+Processed 67108864 unsigned ints in 21832.1094 us
+Read/Write Bandwidth = 12295 MB/s
+Kernel execution is complete.
+Read from DDR.
+
+3 - Creating memread kernel
+Launching the kernel...
+Processed 16777216 unsigned ints in 5338.8804 us
+Read Bandwidth = 12570 MB/s
+Kernel execution is complete.
+
+4 - Creating memwrite kernel
+Launching the kernel...
+Processed 16777216 unsigned ints in 5303.2378 us
+Write Bandwidth = 12654 MB/s
+Kernel execution is complete.
+
+7 - Creating Single kernel with both memread and memwrite kernel
+Launching the kernel...
+
+Kernel Start  1228370977594009.000000
+Kernel End    1228370985222026.000000
+
+Write Kernel Exec Time 7628017.000000
+
+Processed 16777216 unsigned ints in 7644.3608 us
+Write Bandwidth = 8779 MB/s
+Kernel execution is complete.
+
+8 - Overlapping Device Read and Write
+Copying to DDR
+Launching the kernel...
+Copying from DDR
+
+Kernel Start  1228370990641593.000000
+Kernel End    1228370996425712.000000
+
+Write Kernel Exec Time 5784119.000000
+
+Processed 33554432 unsigned ints in 5812.2119 us
+Full Duplex Bandwidth = 23092 MB/s
+Kernel execution is complete.
+Verification finished.

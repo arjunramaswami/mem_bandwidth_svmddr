@@ -70,7 +70,7 @@ SRCS := $(wildcard ../common/src/AOCLUtils/*.cpp) $(wildcard host/src/*.cpp)
 
 # Libraries.
 #LIBS := alteracl intel_opae_mmd rt elf MPF
-LIBS := rt
+LIBS := rt 
 # Compiler.
 CXX := g++
 
@@ -104,16 +104,22 @@ $(TARGET_DIR)/$(TARGET) : Makefile $(SRCS) $(INC_FILES)
 
 #### device targets
 emu : device/mem_bandwidth_ddr.cl
-	aoc -march=emulator -board=pac_s10_usm -o bin/mem_bandwidth_s10_svmddr_emu.aocx device/mem_bandwidth_ddr.cl
+	aoc -legacy-emulator -march=emulator -board=pac_s10_usm -board-package=${AOCL_BOARD_PACKAGE_ROOT} -o bin/mem_bandwidth_s10_svmddr_batch_emu.aocx device/mem_bandwidth_ddr_batch.cl
 
 run_emu : emu
 	bin/mem_bandwidth 1024 emu
 
 report_hw:
-	aoc -rtl -board-package=$(AOCL_BOARD_PACKAGE_ROOT) -board=pac_s10_usm -o bin/mem_bandwidth_s10_svmddr_report.out device/mem_bandwidth_ddr.cl
+	aoc -rtl -board-package=$(AOCL_BOARD_PACKAGE_ROOT) -board=pac_s10_usm -o bin/mem_bandwidth_s10_svmddr_batch_report.out device/mem_bandwidth_ddr_batch.cl
 
 build_hw:
 	aoc -board-package=$(AOCL_BOARD_PACKAGE_ROOT) -board=pac_s10_usm -o bin/mem_bandwidth_s10_svmddr.aocx device/mem_bandwidth_ddr.cl
+
+build_hw_no_interleaving:
+	aoc -board-package=$(AOCL_BOARD_PACKAGE_ROOT) -board=pac_s10_usm -no-interleaving=device -o bin/mem_bandwidth_s10_svmddr_batch3.aocx device/mem_bandwidth_ddr_batch.cl
+
+profile_hw_no_interleaving:
+	aoc -board-package=$(AOCL_BOARD_PACKAGE_ROOT) -board=pac_s10_usm -profile -no-interleaving=device -o bin/mem_bandwidth_s10_svmddr_batch2_prof.aocx device/mem_bandwidth_ddr_batch.cl
 
 run_hw :
 	bin/mem_bandwidth 1024000

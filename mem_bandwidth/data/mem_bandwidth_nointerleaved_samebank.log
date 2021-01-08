@@ -1,0 +1,63 @@
+<3 Arguments given, assuming hardware execution mode.
+Using SDK as search string for platform.
+Using bin/mem_bandwidth_s10_svmddr_prof.aocx as aocx name.
+Found 2 platforms!
+Trying to select platform SDK...
+Setting profiler start cycle from environment variable: 1
+SVM enabled!
+Creating SVM buffers.
+Info: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGACreating DDR buffers.
+Initializing data.
+Trying to load aocx: bin/mem_bandwidth_s10_svmddr_prof.aocx
+Creating nop kernel
+Launching the kernel...
+after kernel nop launch
+Starting memcopy kernel
+Creating memcopy kernel (Host->Host)
+Launching the kernel...
+Processed 16777216 unsigned ints in 5899.5674 us
+Read/Write Bandwidth = 22750 MB/s
+Kernel execution is complete.
+Copying to DDR
+Creating memcopy_ddr kernel (DDR->DDR)
+Launching the kernel...
+after buffer enqueue
+after kernel launch
+Processed 16777216 unsigned ints in 8195.6104 us
+Read/Write Bandwidth = 16377 MB/s
+Kernel execution is complete.
+Copying from DDR
+Creating memcopy_to_ddr and memcopy_from_ddr kernel (Host->DDR->Host)
+Launching the kernel...
+
+Batch 1: Write Kernel Start  3037678334721116.000000
+Batch 1: Write Kernel End    3037678339995548.000000
+Batch 1: Read Kernel Start   3037678340070874.000000
+Batch 1: Read Kernel End     3037678346467298.000000
+Batch 2: Write Kernel Start  3037678340055261.000000
+Batch 2: Write Kernel End    3037678350149242.000000
+Batch 2: Read Kernel Start   3037678350226735.000000
+Batch 2: Read Kernel End     3037678355555474.000000
+
+Batch 1: Write Kernel Exec Time 5274432.000000
+Batch 1: Read Kernel Exec Time  6396424.000000
+Batch 2: Write Kernel Exec Time 10093981.000000
+Batch 2: Read Kernel Exec Time  5328739.000000
+
+Processed 67108864 unsigned ints in 20921.4805 us
+Read/Write Bandwidth = 12831 MB/s
+Kernel execution is complete.
+Read from DDR.
+Creating memread kernel
+Launching the kernel...
+Processed 16777216 unsigned ints in 5413.7144 us
+Read Bandwidth = 12396 MB/s
+Kernel execution is complete.
+Creating memwrite kernel
+Launching the kernel...
+Processed 16777216 unsigned ints in 5347.6729 us
+Write Bandwidth = 12549 MB/s
+Kernel execution is complete.
+Verification finished.
+Starting post-processing of the profiler data...
+Post-processing complete.

@@ -1,0 +1,62 @@
+<3 Arguments given, assuming hardware execution mode.
+Using SDK as search string for platform.
+Using bin/mem_bandwidth_s10_svmddr.aocx as aocx name.
+Found 2 platforms!
+Trying to select platform SDK...
+SVM enabled!
+Creating SVM buffers.
+Info: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGAInfo: Using clSVMAllocIntelFPGACreating DDR buffers.
+Initializing data.
+Trying to load aocx: bin/mem_bandwidth_s10_svmddr.aocx
+Creating nop kernel
+Launching the kernel...
+after kernel nop launch
+Starting memcopy kernel
+Creating memcopy kernel (Host->Host)
+Launching the kernel...
+Processed 16777216 unsigned ints in 5808.7319 us
+Read/Write Bandwidth = 23106 MB/s
+Kernel execution is complete.
+Copying to DDR
+Creating memcopy_ddr kernel (DDR->DDR)
+Launching the kernel...
+after buffer enqueue
+after kernel launch
+Processed 16777216 unsigned ints in 4053.9341 us
+Read/Write Bandwidth = 33108 MB/s
+Kernel execution is complete.
+Copying from DDR
+Creating memcopy_to_ddr and memcopy_from_ddr kernel (Host->DDR->Host)
+Launching the kernel...
+Batch1: Write Kernel Start
+Batch1: Read Kernel Start
+Batch2: Write Kernel Start
+Batch2: Read Kernel Start
+Batch2: Read Kernel End
+
+Batch 1: Read Kernel Start   2761032271119363.000000
+Batch 1: Read Kernel End     2761032276387802.000000
+Batch 2: Write Kernel Start  2761032271104047.000000
+Batch 2: Write Kernel End    2761032281593233.000000
+Batch 2: Read Kernel Start   2761032281605419.000000
+Batch 2: Read Kernel End     2761032286889069.000000
+
+Batch 1: Read Kernel Exec Time  5268439.000000
+Batch 2: Write Kernel Exec Time 10489186.000000
+Batch 2: Read Kernel Exec Time  5283650.000000
+
+Processed 67108864 unsigned ints in 21129.8613 us
+Read/Write Bandwidth = 12704 MB/s
+Kernel execution is complete.
+Read from DDR.
+Creating memread kernel
+Launching the kernel...
+Processed 16777216 unsigned ints in 5338.4619 us
+Read Bandwidth = 12571 MB/s
+Kernel execution is complete.
+Creating memwrite kernel
+Launching the kernel...
+Processed 16777216 unsigned ints in 5302.7402 us
+Write Bandwidth = 12656 MB/s
+Kernel execution is complete.
+Verification finished.
