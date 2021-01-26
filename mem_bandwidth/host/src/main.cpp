@@ -89,7 +89,7 @@ static bool device_has_svm(cl_device_id device) {
 }
 
 //hdatain = (unsigned int*)clSVMAllocIntelFPGA(context, 0, buf_size, 1024);
-void *alloc_fpga_host_buffer(cl_context &in_context, int some_int, int size, int some_int2);
+void *alloc_fpga_host_buffer(cl_context &in_context, cl_svm_mem_flags mem_flag, size_t size, unsigned alignment);
 cl_int set_fpga_buffer_kernel_param(cl_kernel &kernel, int param, void *ptr);
 
 cl_int enqueue_fpga_buffer(cl_command_queue  queue/* command_queue */,
@@ -166,7 +166,7 @@ static void freeResources() {
 }
 
 
-void *alloc_fpga_host_buffer(cl_context &in_context, int some_int, int size, int some_int2)
+void *alloc_fpga_host_buffer(cl_context &in_context, cl_svm_mem_flags mem_flag, size_t size, unsigned alignment)
 {
 #if 0
       if (use_prealloc_svm_buffer) {
@@ -180,7 +180,7 @@ void *alloc_fpga_host_buffer(cl_context &in_context, int some_int, int size, int
       } else {
 #endif
 			printf("Info: Using clSVMAllocIntelFPGA");
-		   return clSVMAlloc(in_context, some_int, size, some_int2);
+		  return clSVMAlloc(in_context, mem_flag, size, alignment);
 #if 0
       }
 #endif
@@ -286,19 +286,52 @@ int main(int argc, char *argv[]) {
   //platform = findPlatform("SDK");
 
   // get the device ID
+  /*
   status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, &device, &num_devices);
   if(status != CL_SUCCESS) {
     dump_error("Failed clGetDeviceIDs.", status);
     freeResources();
     return 1;
   }
+  */
+  /*
   if(num_devices != 1) {
     printf("Found %d devices!\n", num_devices);
     freeResources();
     return 1;
   }
+  */
+  status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices);
+  if(status != CL_SUCCESS) {
+    dump_error("Failed clGetDeviceIDs.", status);
+    freeResources();
+    return 1;
+  }
+  cl_device_id *devices = (cl_device_id*) malloc(sizeof(cl_device_id) * num_devices);
+  clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices, devices, NULL);
+  char *value;
+
+  size_t value_sz;
+  for(cl_uint j = 0; j < num_devices; j++){
+    clGetDeviceInfo(devices[j], CL_DEVICE_NAME, 0, NULL, &value_sz);
+    value = (char*) malloc(value_sz);
+    clGetDeviceInfo(devices[j], CL_DEVICE_NAME, value_sz, value, NULL);
+    printf("%d. Device: %s\n", j+1, value);
+    free(value);
+
+    // print device version
+    clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, 0, NULL, &value_sz);
+    value = (char*) malloc(value_sz);
+    clGetDeviceInfo(devices[j], CL_DEVICE_VERSION, value_sz, value, NULL);
+    printf("   %d.%d Device version: %s\n", j+1, 1, value);
+    free(value);
+  }
+
+  printf("-- Choosing first device\n");
+  device = devices[0];
 
   // create a context
+  //context = clCreateContext(0, num_devices, devices, NULL, NULL, &status);
   context = clCreateContext(0, 1, &device, NULL, NULL, &status);
   if(status != CL_SUCCESS) {
     dump_error("Failed clCreateContext.", status);
@@ -316,7 +349,9 @@ int main(int argc, char *argv[]) {
   unsigned int buf_size =  vectorSize <= 0 ? 64 : vectorSize*4;
 
   // allocate and initialize the input vectors
-  hdatain = (unsigned int*)alloc_fpga_host_buffer(context, 0, buf_size, 1024);
+  hdatain =	(unsigned int*)clSVMAlloc(context, CL_MEM_READ_WRITE, buf_size, 1024);
+  //hdatain =	(unsigned int*)clSVMAlloc(context, CL_MEM_READ_WRITE, buf_size, 0);
+  //hdatain = (unsigned int*)alloc_fpga_host_buffer(context, CL_MEM_READ_WRITE, buf_size, 1024);
   if(hdatain == NULL) {
     dump_error("Failed alloc_fpga_host_buffer.", status);
     freeResources();
