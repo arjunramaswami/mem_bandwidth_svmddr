@@ -44,12 +44,12 @@ static size_t vectorSize = 1024*1024*16;
 
 bool use_prealloc_svm_buffer = true;
 
-double bw;
+double bw, bw_hw = 0.0;
 // 0 - runall, 2 memcopy , 3 read, 4 write, 5 ddr
 // 6 - single kernel 2 batch, 7 - single kernel memread and memwrite 
 // 8 - single kernel overlap, 9 - separate kernel overlap
 // 10 - 2 Batch 
-int runkernel = 10;
+int runkernel = 0;
 
 // ACL runtime configuration
 static cl_platform_id platform;
@@ -261,7 +261,8 @@ int main(int argc, char *argv[]) {
   printf("Using %s as search string for platform.\n", platform_search_string.c_str());
   printf("Using %s as aocx name.\n", aocx_name_string.c_str());
 
-  if(lines == 0 || lines > 8000000) {
+  if(lines == 0) {
+  //if(lines == 0 || lines > 8000000) {
     printf("Invalid Number of cachelines.\n");
     return 1;
   }
@@ -346,7 +347,8 @@ int main(int argc, char *argv[]) {
   printf("SVM enabled!\n");
 
   printf("Creating SVM buffers.\n");
-  unsigned int buf_size =  vectorSize <= 0 ? 64 : vectorSize*4;
+  size_t buf_size =  vectorSize <= 0 ? 64 : vectorSize*4;
+  printf("Line: %u Vector Size: %lu Buf Size: %lu = %lu\n", lines, vectorSize, buf_size, vectorSize * 4);
 
   // allocate and initialize the input vectors
   hdatain =	(unsigned int*)clSVMAlloc(context, CL_MEM_READ_WRITE, buf_size, 1024);
@@ -1104,16 +1106,29 @@ int main(int argc, char *argv[]) {
     }
 
     // launch kernel
-    const double start_time = getCurrentTimestamp();
-    status = clEnqueueTask(queue, kernel_read, 0, NULL, NULL);
-    if (status != CL_SUCCESS) {
-      dump_error("Failed to launch kernel.", status);
-      freeResources();
-      return 1;
-    }
+    cl_ulong kernel_start = 0.0, kernel_end = 0.0;
+    double kernel_exec = 0.0, time = 0.0;
 
-    clFinish(queue);
-    const double end_time = getCurrentTimestamp();
+    for(uint i = 0; i < 100; i++){
+
+      cl_event start_kernel;
+      const double start_time = getCurrentTimestamp();
+      status = clEnqueueTask(queue, kernel_read, 0, NULL, &start_kernel);
+        if (status != CL_SUCCESS) {
+        dump_error("Failed to launch kernel.", status);
+        freeResources();
+        return 1;
+      }
+
+      clFinish(queue);
+      const double end_time = getCurrentTimestamp();
+
+      clGetEventProfilingInfo(start_kernel, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernel_start, NULL);
+      clGetEventProfilingInfo(start_kernel, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernel_end, NULL);
+
+      kernel_exec += (double)(kernel_end - kernel_start);
+      time += (end_time - start_time);
+    }
 
 	  status = unenqueue_fpga_buffer(queue, (void *)hdatain, 0, NULL, NULL);
     if(status != CL_SUCCESS) {
@@ -1130,8 +1145,15 @@ int main(int argc, char *argv[]) {
 
     clFinish(queue);
 
+    kernel_exec = (kernel_exec / 100) * 1e-6;
+    printf("HW Kernel Exec Time %lf ms\n", kernel_exec);
+
+    bw_hw = vectorSize  / (kernel_exec * 1000000.0f) * sizeof(unsigned int);
+    printf("Read Bandwidth HW = %.2f MB/s\n", bw_hw);
+    printf("\n");
+
     // Wall-clock time taken.
-    double time = (end_time - start_time);
+    time = time / 100;
 
     bw = vectorSize  / (time * 1000000.0f) * sizeof(unsigned int);
     printf("Processed %ld unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
@@ -1187,19 +1209,39 @@ int main(int argc, char *argv[]) {
 
 	  printf("Launching the kernel...\n");
 
-    const double start_time = getCurrentTimestamp();
-    status = clEnqueueTask(queue, kernel_write, 0, NULL, NULL);
-    if (status != CL_SUCCESS) {
-      dump_error("Failed to launch kernel.", status);
-      freeResources();
-      return 1;
+    cl_event start_kernel;
+    double kernel_exec = 0.0, time = 0.0;
+    for(uint i = 0; i < 100; i++){
+
+      const double start_time = getCurrentTimestamp();
+      status = clEnqueueTask(queue, kernel_write, 0, NULL, &start_kernel);
+      if (status != CL_SUCCESS) {
+        dump_error("Failed to launch kernel.", status);
+        freeResources();
+        return 1;
+      }
+      clFinish(queue);
+      const double end_time = getCurrentTimestamp();
+
+      cl_ulong kernel_start = 0.0, kernel_end = 0.0;
+      clGetEventProfilingInfo(start_kernel, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernel_start, NULL);
+      clGetEventProfilingInfo(start_kernel, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernel_end, NULL);
+
+      kernel_exec += (double)(kernel_end - kernel_start);
+      time += (end_time - start_time);
     }
-    clFinish(queue);
-    const double end_time = getCurrentTimestamp();
+
+    kernel_exec = (kernel_exec / 100) * 1e-6;
+    printf("Avg HW Kernel Exec Time %lf ms of %d iterations\n", kernel_exec, 100);
+    printf("\n");
+
+    bw_hw = vectorSize  / (kernel_exec * 1000000.0f) * sizeof(unsigned int);
+    printf("Write Bandwidth HW = %.2f MB/s\n", bw_hw);
+    printf("\n");
 
     // Wall-clock time taken.
-    double time = (end_time - start_time);
-
+    //double time = (end_time - start_time);
+    time = time / 100;
     bw = vectorSize  / (time * 1000000.0f) * sizeof(unsigned int);
     printf("Processed %ld unsigned ints in %.4f us\n", vectorSize, time*1000000.0f);
     printf("Write Bandwidth = %.0f MB/s\n", bw);

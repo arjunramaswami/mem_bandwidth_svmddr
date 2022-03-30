@@ -34,7 +34,6 @@ memcopy (
 }
 
 
-
 // Copies 64 byte lines from src to dst
 __kernel void
 __attribute__((task))
